@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary: #1E293B;
+  /* Deep Navy */
+  --accent: #F59E0B;
+  /* Golden Yellow */
+  --secondary: #64748B;
+  /* Slate Gray */
+  --bg-light: #F8FAFC;
+  --white: #ffffff;
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}

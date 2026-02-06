@@ -1,0 +1,83 @@
+.login-container {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: linear-gradient(rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.8)),
+        url('https://images.unsplash.com/photo-1534452203293-494d7ddbf7e0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+}
+
+.login-glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    padding: 3rem;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-header h1 {
+    color: var(--primary);
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: var(--secondary);
+    font-size: 1rem;
+}
+
+.error-message {
+    background-color: #fee2e2;
+    color: #dc2626;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.login-footer {
+    margin-top: 2rem;
+    text-align: center;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1.5rem;
+}
+
+.login-footer p {
+    color: var(--secondary);
+    font-size: 0.85rem;
+}
+
+.login-footer span {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Form animation */
+.login-glass-card {
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
