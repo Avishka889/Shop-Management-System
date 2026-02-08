@@ -24,12 +24,25 @@ app.get('/', (req, res) => {
 
 const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
+const productionRoutes = require('./routes/productionRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
+const supplierRoutes = require('./routes/supplierRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const initCronJobs = require('./utils/cronJobs');
 
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/productions', productionRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/salaries', salaryRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/notifications', notificationRoutes);
 
-const debugRoutes = require('./routes/debugRoutes');
-app.use('/api/debug', debugRoutes);
+// Initialize Cron Jobs
+initCronJobs();
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

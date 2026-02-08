@@ -25,7 +25,8 @@ const seedUsers = async () => {
             name: 'Sachith (Owner)',
             username: 'owner',
             password: 'password123',
-            role: 'owner'
+            role: 'owner',
+            profilePicture: 'https://cdn-icons-png.flaticon.com/512/6833/6833605.png'
         });
         console.log('✅ Owner created:', owner.username);
 
@@ -34,9 +35,20 @@ const seedUsers = async () => {
             name: 'Amila (Supervisor)',
             username: 'supervisor',
             password: 'password123',
-            role: 'supervisor'
+            role: 'supervisor',
+            profilePicture: 'https://cdn-icons-png.flaticon.com/512/9131/9131529.png'
         });
         console.log('✅ Supervisor created:', supervisor.username);
+
+        const Settings = require('./models/Settings');
+        console.log('Creating Initial Settings...');
+        await Settings.create({
+            ownerSecretPassword: 'secretpassword',
+            lowStockThreshold: 50,
+            totalInventory: 0,
+            totalProduction: 0
+        });
+        console.log('✅ Initial Settings created');
 
         console.log('--- 🚀 Seeding Successful! ---');
         console.log('Try logging in with:');

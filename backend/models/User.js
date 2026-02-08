@@ -10,9 +10,11 @@ const userSchema = new mongoose.Schema({
         enum: ['owner', 'supervisor'],
         default: 'supervisor',
         required: true
-    }
+    },
+    profilePicture: { type: String }
 }, {
-    timestamps: true
+    timestamps: true,
+    collection: 'users'
 });
 
 // Hash password before saving
