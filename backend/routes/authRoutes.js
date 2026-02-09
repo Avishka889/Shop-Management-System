@@ -82,6 +82,8 @@ router.put('/profile', protect, async (req, res) => {
     try {
         const user = await User.findById(req.user._id);
 
+
+
         if (user) {
             if (req.body.password) {
                 user.password = req.body.password;
@@ -105,6 +107,8 @@ router.put('/profile', protect, async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
+
+
 });
 
 module.exports = router;

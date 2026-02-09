@@ -1,12 +1,14 @@
 :root {
-    --primary: #1E293B;
-    /* Deep Navy */
-    --accent: #F59E0B;
-    /* Golden Yellow */
-    --secondary: #64748B;
-    /* Slate Gray */
+    --primary: #6B7A8F;
+    /* Blueberry */
+    --accent: #F7C331;
+    /* Citrus */
+    --secondary: #F7882F;
+    /* Apricot */
     --white: #ffffff;
     --error: #ef4444;
+    --border-color: #DCC7AA;
+    /* Apple Core */
 }
 
 .common-btn {
@@ -24,9 +26,9 @@
 }
 
 .btn-primary:hover {
-    background-color: #0f172a;
+    background-color: #566475;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(107, 122, 143, 0.2);
 }
 
 .btn-accent {
@@ -64,6 +66,6 @@
 
 .common-input:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(107, 122, 143, 0.1);
 }

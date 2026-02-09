@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import Button from '../components/Button';
 import dayjs from 'dayjs';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const SupervisorDashboard = () => {
     const navigate = useNavigate();
@@ -24,13 +24,33 @@ const SupervisorDashboard = () => {
     const [supplierData, setSupplierData] = useState({ name: '', contact: '', address: '', items: '' });
 
     // Report states
-    const [reportRange, setReportRange] = useState({ start: dayjs().subtract(7, 'day').format('YYYY-MM-DD'), end: dayjs().format('YYYY-MM-DD') });
+    const [reportRange, setReportRange] = useState({
+        start: dayjs().subtract(8, 'day').format('YYYY-MM-DD'),
+        end: dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+    });
+    const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+
     const [reportData, setReportData] = useState([]);
     const [newPassword, setNewPassword] = useState('');
+    const [prevDayProduction, setPrevDayProduction] = useState(0);
+    const [currentTime, setCurrentTime] = useState(dayjs());
+
+    // Sync Production states
+    const [showSyncModal, setShowSyncModal] = useState(false);
+    const [syncDate, setSyncDate] = useState(dayjs().format('YYYY-MM-DD'));
+    const [syncQty, setSyncQty] = useState('');
+    const [syncPassword, setSyncPassword] = useState('');
+    const [syncStatus, setSyncStatus] = useState('Checking...');
 
     useEffect(() => {
         fetchStats();
         fetchNotifications();
+
+        const timer = setInterval(() => {
+            setCurrentTime(dayjs());
+        }, 1000);
+
+        return () => clearInterval(timer);
     }, []);
 
     const handleUpdateProfile = async (e) => {
@@ -59,6 +79,14 @@ const SupervisorDashboard = () => {
                 totalOrders: totalOrd,
                 totalProduction: totalProd
             });
+
+            // Calculate Previous Day's Production
+            const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+            const prevDayProd = productions
+                .filter(p => dayjs(p.date).format('YYYY-MM-DD') === yesterday)
+                .reduce((acc, curr) => acc + curr.quantity, 0);
+
+            setPrevDayProduction(prevDayProd);
         } catch (error) {
             console.error('Error fetching stats', error);
         }
@@ -76,6 +104,46 @@ const SupervisorDashboard = () => {
     const handleLogout = () => {
         localStorage.removeItem('userInfo');
         navigate('/login');
+    };
+
+    const fetchProductionByDate = async (date) => {
+        setSyncStatus('Fetching data...');
+        try {
+            const { data } = await api.get(`/productions/date/${date}`);
+            if (data) {
+                setSyncQty(data.quantity);
+                setSyncStatus(`Existing Production: ${data.quantity} Units found.`);
+            } else {
+                setSyncQty('');
+                setSyncStatus('No data for this date. (Missing daily production)');
+            }
+        } catch (error) {
+            console.error('Error fetching production by date', error);
+            setSyncStatus('Error checking data.');
+        }
+    };
+
+    const handleSyncProduction = async () => {
+        if (!syncQty || !syncDate || !syncPassword) {
+            alert('Please fill all fields');
+            return;
+        }
+        try {
+            const { data } = await api.post('/productions/sync', {
+                date: syncDate,
+                quantity: syncQty,
+                secretPassword: syncPassword
+            });
+            if (data.success) {
+                alert(data.message);
+                setShowSyncModal(false);
+                setSyncPassword('');
+                setSyncQty('');
+                fetchStats();
+            }
+        } catch (error) {
+            alert(error.response?.data?.message || 'Error updating production');
+        }
     };
 
     const handleProductionSubmit = async (e) => {
@@ -128,38 +196,42 @@ const SupervisorDashboard = () => {
     const generateReport = async (type) => {
         try {
             let data;
-            if (type === 'production') {
-                const res = await api.get(`/productions?startDate=${reportRange.start}&endDate=${reportRange.end}`);
-                data = res.data;
-            } else {
-                const res = await api.get(`/orders?startDate=${reportRange.start}&endDate=${reportRange.end}`);
-                data = res.data;
+            const url = type === 'production'
+                ? `/productions?startDate=${reportRange.start}&endDate=${reportRange.end}`
+                : `/orders?startDate=${reportRange.start}&endDate=${reportRange.end}`;
+
+            const res = await api.get(url);
+            data = res.data;
+
+            if (!data || data.length === 0) {
+                alert(`No ${type} data found for the selected date range.`);
+                return;
             }
 
             const doc = new jsPDF();
             doc.text(`${type.toUpperCase()} REPORT`, 14, 15);
             doc.text(`Range: ${reportRange.start} to ${reportRange.end}`, 14, 25);
 
-            if (data.length === 0) {
-                doc.text(type === 'production' ? 'No Daily Production' : 'No Orders', 14, 35);
-            } else {
-                const tableData = data.map(item => [
-                    dayjs(item.date).format('YYYY-MM-DD HH:mm'),
-                    item.quantity,
-                    item.customerName || 'N/A',
-                    item.amount ? `$${item.amount}` : 'N/A'
-                ]);
-                doc.autoTable({
-                    head: [['Date/Time', 'Quantity', 'Customer', 'Amount']],
-                    body: tableData,
-                    startY: 35
-                });
-            }
+            const tableData = data.map(item => [
+                dayjs(item.date).format('YYYY-MM-DD HH:mm'),
+                item.quantity,
+                item.customerName || 'N/A',
+                item.amount ? `$${item.amount}` : 'N/A'
+            ]);
+
+            autoTable(doc, {
+                head: [['Date/Time', 'Quantity', 'Reference', 'Value']],
+                body: tableData,
+                startY: 35
+            });
+
             doc.save(`${type}_report_${dayjs().format('YYYYMMDD')}.pdf`);
         } catch (error) {
             console.error('Error generating report', error);
+            alert('Failed to generate report. Please try again.');
         }
     };
+
 
     return (
         <div className="dashboard-container">
@@ -195,18 +267,20 @@ const SupervisorDashboard = () => {
                     <div className="notification-panel">
                         <h3>Notifications</h3>
                         {notifications.length === 0 && <p style={{ fontSize: '0.8rem', color: '#64748b' }}>No alerts today.</p>}
-                        {notifications.map(n => (
-                            <div key={n._id} className={`notification-item ${n.type === 'Low Stock' ? 'low-stock' : ''} ${n.status === 'Completed' ? 'completed' : ''}`}>
-                                <div className="notification-info">
-                                    <h4>{n.type}</h4>
-                                    <p>{n.message}</p>
-                                    <p style={{ fontSize: '0.7rem' }}>{dayjs(n.date).format('MMM DD')}</p>
+                        {notifications
+                            .filter(n => n.status === 'Pending')
+                            .map(n => (
+                                <div key={n._id} className={`notification-item ${n.type === 'Low Stock' ? 'low-stock' : ''}`}>
+                                    <div className="notification-info">
+                                        <h4>{n.type}</h4>
+                                        <p>{n.message}</p>
+                                        <p style={{ fontSize: '0.7rem' }}>{dayjs(n.date).format('MMM DD')}</p>
+                                    </div>
+                                    <span className={`status-badge status-pending`}>
+                                        {n.status}
+                                    </span>
                                 </div>
-                                <span className={`status-badge ${n.status === 'Pending' ? 'status-pending' : 'status-completed'}`}>
-                                    {n.status}
-                                </span>
-                            </div>
-                        ))}
+                            ))}
                     </div>
                 </aside>
 
@@ -239,9 +313,60 @@ const SupervisorDashboard = () => {
 
                         {activeTab === 'inventory' && (
                             <section>
-                                <div className="card-header">
+                                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h3>Daily Production Entry</h3>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => {
+                                            setShowSyncModal(true);
+                                            fetchProductionByDate(syncDate);
+                                        }}
+                                        style={{ width: 'auto', fontSize: '0.8rem', padding: '0.5rem 1rem' }}
+                                    >
+                                        ➕ Add or Update Daily Production
+                                    </Button>
                                 </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                                    {/* Previous Production Card */}
+                                    <div style={{
+                                        padding: '0.75rem 1rem',
+                                        background: '#fdf2f8',
+                                        borderRadius: '10px',
+                                        border: '1px solid #fbcfe8',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        width: 'fit-content'
+                                    }}>
+                                        <span style={{ fontSize: '1rem' }}>📈</span>
+                                        <p style={{ margin: 0, color: '#9d174d', fontWeight: '600', fontSize: '0.9rem' }}>
+                                            Yesterday's Total Production: <span style={{ fontSize: '1.1rem', fontWeight: '800' }}>{prevDayProduction} Units</span>
+                                        </p>
+                                    </div>
+
+                                    {/* Timer Card */}
+                                    <div style={{
+                                        padding: '1rem',
+                                        background: '#f0f9ff',
+                                        borderRadius: '12px',
+                                        border: '1px solid #bae6fd',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem'
+                                    }}>
+                                        <span style={{ fontSize: '1.2rem' }}>🕒</span>
+                                        <div>
+                                            <p style={{ margin: 0, fontWeight: '700', color: '#0369a1', fontSize: '1.1rem' }}>
+                                                {currentTime.format('dddd, MMMM D, YYYY')}
+                                            </p>
+                                            <p style={{ margin: 0, color: '#0ea5e9', fontSize: '0.9rem', fontWeight: '500' }}>
+                                                Current Entry Time: {currentTime.format('hh:mm:ss A')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <form onSubmit={handleProductionSubmit}>
                                     <div className="form-group">
                                         <label>Production Quantity (Bags/Units)</label>
@@ -256,6 +381,25 @@ const SupervisorDashboard = () => {
                                     </div>
                                     <Button type="submit" variant="primary">Record Production</Button>
                                 </form>
+
+                                <div style={{ marginTop: '2.5rem', paddingTop: '2rem', borderTop: '2px dashed #e2e8f0' }}>
+                                    <h4 style={{ marginBottom: '1rem', color: '#475569' }}>Quick Production Report</h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                        <div className="form-group">
+                                            <label>Start Date</label>
+                                            <input type="date" className="form-control" max={yesterday} value={reportRange.start} onChange={e => setReportRange({ ...reportRange, start: e.target.value })} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>End Date</label>
+                                            <input type="date" className="form-control" max={yesterday} value={reportRange.end} onChange={e => setReportRange({ ...reportRange, end: e.target.value })} />
+                                        </div>
+
+                                    </div>
+                                    <Button variant="secondary" onClick={() => generateReport('production')} style={{ width: '100%' }}>
+                                        📄 Generate Daily Production Report
+                                    </Button>
+                                </div>
+
                             </section>
                         )}
 
@@ -336,12 +480,13 @@ const SupervisorDashboard = () => {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
                                     <div className="form-group">
                                         <label>Start Date</label>
-                                        <input type="date" className="form-control" value={reportRange.start} onChange={e => setReportRange({ ...reportRange, start: e.target.value })} />
+                                        <input type="date" className="form-control" max={yesterday} value={reportRange.start} onChange={e => setReportRange({ ...reportRange, start: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label>End Date</label>
-                                        <input type="date" className="form-control" value={reportRange.end} onChange={e => setReportRange({ ...reportRange, end: e.target.value })} />
+                                        <input type="date" className="form-control" max={yesterday} value={reportRange.end} onChange={e => setReportRange({ ...reportRange, end: e.target.value })} />
                                     </div>
+
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
                                     <Button variant="primary" onClick={() => generateReport('production')}>Download Production Report (PDF)</Button>
@@ -411,6 +556,64 @@ const SupervisorDashboard = () => {
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                             <Button variant="primary" onClick={handleVerifySecret}>Authorize</Button>
                             <Button variant="secondary" onClick={() => setShowMissingModal(false)}>Cancel</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showSyncModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px' }}>
+                        <h3>Add or Update Daily Production</h3>
+                        <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                            Update existing production or add missing data. Requires Owner Secret Password.
+                        </p>
+
+                        <div className="form-group">
+                            <label>Secret Password</label>
+                            <input
+                                type="password"
+                                className="form-control"
+                                placeholder="Owner Secret Password"
+                                value={syncPassword}
+                                onChange={(e) => setSyncPassword(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Select Date</label>
+                            <input
+                                type="date"
+                                className="form-control"
+                                value={syncDate}
+                                onChange={(e) => {
+                                    setSyncDate(e.target.value);
+                                    fetchProductionByDate(e.target.value);
+                                }}
+                            />
+                            <p style={{
+                                fontSize: '0.8rem',
+                                marginTop: '0.4rem',
+                                color: syncStatus.includes('Missing') || syncStatus.includes('No data') ? '#ef4444' : '#10b981',
+                                fontWeight: '500'
+                            }}>
+                                ℹ️ {syncStatus}
+                            </p>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Production Quantity</label>
+                            <input
+                                type="number"
+                                className="form-control"
+                                placeholder="Enter quantity"
+                                value={syncQty}
+                                onChange={(e) => setSyncQty(e.target.value)}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                            <Button variant="primary" onClick={handleSyncProduction}>Save Changes</Button>
+                            <Button variant="secondary" onClick={() => setShowSyncModal(false)}>Cancel</Button>
                         </div>
                     </div>
                 </div>

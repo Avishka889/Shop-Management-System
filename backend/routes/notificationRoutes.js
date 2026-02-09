@@ -3,10 +3,22 @@ const router = express.Router();
 const Notification = require('../models/Notification');
 const { protect } = require('../middleware/authMiddleware');
 
+const Settings = require('../models/Settings');
+
 // @desc    Get all notifications
 // @route   GET /api/notifications
 router.get('/', protect, async (req, res) => {
     try {
+        const settings = await Settings.findOne();
+
+        // Self-healing: If inventory is now above threshold, mark ALL pending Low Stock notifications as completed
+        if (settings && settings.totalInventory > settings.lowStockThreshold) {
+            await Notification.updateMany(
+                { type: 'Low Stock', status: 'Pending' },
+                { status: 'Completed' }
+            );
+        }
+
         const notifications = await Notification.find().sort({ date: -1 });
         res.json(notifications);
     } catch (error) {

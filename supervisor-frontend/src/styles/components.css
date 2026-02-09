@@ -1,12 +1,14 @@
 :root {
-    --primary: #0D9488;
-    /* Teal-600 */
-    --accent: #2DD4BF;
-    /* Teal-400 */
-    --secondary: #475569;
-    /* Slate-600 */
-    --bg-light: #F1F5F9;
+    --primary: #6B7A8F;
+    /* Blueberry */
+    --accent: #F7C331;
+    /* Citrus */
+    --secondary: #F7882F;
+    /* Apricot */
+    --bg-light: #fbf9f6;
     --white: #ffffff;
+    --border-color: #DCC7AA;
+    /* Apple Core */
 }
 
 .common-btn {
@@ -18,26 +20,23 @@
     font-size: 1rem;
 }
 
-.btn-primary {
+.btn-primary,
+.btn-secondary,
+.btn-accent {
     background-color: var(--primary);
     color: var(--white);
+    border: none;
+    cursor: pointer;
 }
 
-.btn-primary:hover {
-    background-color: #0f766e;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
-}
-
-.btn-accent {
-    background-color: var(--accent);
-    color: #042f2e;
-}
-
+.btn-primary:hover,
+.btn-secondary:hover,
 .btn-accent:hover {
-    background-color: #14b8a6;
+    background-color: #566475;
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(107, 122, 143, 0.2);
 }
+
 
 .common-input-group {
     margin-bottom: 1.25rem;
@@ -65,5 +64,5 @@
 .common-input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    box-shadow: 0 0 0 3px rgba(107, 122, 143, 0.1);
 }

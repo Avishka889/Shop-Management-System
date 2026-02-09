@@ -54,9 +54,15 @@ router.post('/', protect, async (req, res) => {
         }
 
         // If there was a missing order notification for this date, mark it completed
-        const orderDate = new Date(date || new Date()).setHours(0, 0, 0, 0);
+        const startOfDay = new Date(date || new Date()).setHours(0, 0, 0, 0);
+        const endOfDay = new Date(date || new Date()).setHours(23, 59, 59, 999);
+
         await Notification.findOneAndUpdate(
-            { date: orderDate, type: 'Missing Order', status: 'Pending' },
+            {
+                date: { $gte: startOfDay, $lte: endOfDay },
+                type: 'Missing Order',
+                status: 'Pending'
+            },
             { status: 'Completed' }
         );
 

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import Button from '../components/Button';
 import dayjs from 'dayjs';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const OwnerDashboard = () => {
     const navigate = useNavigate();
@@ -15,11 +15,18 @@ const OwnerDashboard = () => {
     const [settings, setSettings] = useState({ ownerSecretPassword: '', lowStockThreshold: 0 });
     const [reportRange, setReportRange] = useState({ start: dayjs().subtract(30, 'day').format('YYYY-MM-DD'), end: dayjs().format('YYYY-MM-DD') });
     const [newPassword, setNewPassword] = useState('');
+    const [dailyProductions, setDailyProductions] = useState([]);
+    const [productionReportRange, setProductionReportRange] = useState({
+        start: dayjs().subtract(8, 'day').format('YYYY-MM-DD'),
+        end: dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+    });
+    const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
 
     useEffect(() => {
         fetchStats();
         fetchNotifications();
         fetchSettings();
+        fetchDailyProductions();
     }, []);
 
     const handleUpdateProfile = async (e) => {
@@ -30,8 +37,10 @@ const OwnerDashboard = () => {
             alert('Password updated successfully');
             setNewPassword('');
         } catch (error) {
-            alert(error.response?.data?.message || 'Error updating profile');
+            const msg = error.response?.data?.message || error.message || 'Error updating profile';
+            alert(msg);
         }
+
     };
 
     const fetchStats = async () => {
@@ -71,18 +80,63 @@ const OwnerDashboard = () => {
         }
     };
 
+    const fetchDailyProductions = async () => {
+        try {
+            const { data } = await api.get('/productions?startDate=' + productionReportRange.start + '&endDate=' + productionReportRange.end);
+            setDailyProductions(data);
+        } catch (error) {
+            console.error('Error fetching daily productions', error);
+        }
+    };
+
+    const generateProductionReport = async () => {
+        try {
+            const { data } = await api.get(`/productions?startDate=${productionReportRange.start}&endDate=${productionReportRange.end}`);
+
+            if (!data || data.length === 0) {
+                alert('No production data found for the selected date range.');
+                return;
+            }
+
+            const doc = new jsPDF();
+            doc.text('DAILY PRODUCTION REPORT', 14, 15);
+            doc.text(`Range: ${productionReportRange.start} to ${productionReportRange.end}`, 14, 25);
+
+            const tableData = data.map(item => [
+                dayjs(item.date).format('YYYY-MM-DD HH:mm'),
+                item.quantity
+            ]);
+
+            autoTable(doc, {
+                head: [['Date/Time', 'Quantity (Units)']],
+                body: tableData,
+                startY: 35
+            });
+
+            doc.save(`production_report_${dayjs().format('YYYYMMDD')}.pdf`);
+        } catch (error) {
+            console.error('Error generating report', error);
+            alert('Failed to generate report. Please try again.');
+        }
+    };
+
+
+
     const handleUpdateSettings = async (e) => {
         e.preventDefault();
         try {
-            const updateData = { lowStockThreshold: settings.lowStockThreshold };
+            const updateData = { lowStockThreshold: Number(settings.lowStockThreshold) };
+            // Only send password if it's not the placeholder and not empty
             if (settings.ownerSecretPassword !== '••••••••' && settings.ownerSecretPassword !== '') {
                 updateData.ownerSecretPassword = settings.ownerSecretPassword;
             }
+
             await api.put('/settings', updateData);
             alert('Settings updated successfully');
-            fetchSettings();
+            fetchSettings(); // Refresh settings
         } catch (error) {
-            alert('Error updating settings');
+            const msg = error.response?.data?.message || 'Error updating settings';
+            alert(msg);
         }
     };
 
@@ -122,6 +176,15 @@ const OwnerDashboard = () => {
         }
     };
 
+    const handleMarkRead = async (id) => {
+        try {
+            await api.put(`/notifications/${id}`);
+            fetchNotifications();
+        } catch (error) {
+            console.error('Error marking notification as read', error);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('userInfo');
         navigate('/login');
@@ -155,15 +218,32 @@ const OwnerDashboard = () => {
 
                     <div className="notification-panel">
                         <h3>System Alerts</h3>
-                        {notifications.map(n => (
-                            <div key={n._id} className={`notification-item ${n.type === 'Low Stock' ? 'low-stock' : ''}`}>
-                                <div className="notification-info">
-                                    <h4>{n.type}</h4>
-                                    <p>{n.message}</p>
-                                    <p style={{ fontSize: '0.7rem' }}>{dayjs(n.date).format('MMM DD, YYYY')}</p>
+                        {notifications
+                            .filter(n => n.status === 'Pending')
+                            .map(n => (
+                                <div key={n._id} className={`notification-item ${n.type === 'Low Stock' ? 'low-stock' : ''}`}>
+                                    <div className="notification-info">
+                                        <h4>{n.type}</h4>
+                                        <p>{n.message}</p>
+                                        <p style={{ fontSize: '0.7rem' }}>{dayjs(n.date).format('MMM DD, YYYY')}</p>
+                                        <button
+                                            onClick={() => handleMarkRead(n._id)}
+                                            style={{
+                                                marginTop: '0.5rem',
+                                                fontSize: '0.7rem',
+                                                padding: '2px 8px',
+                                                cursor: 'pointer',
+                                                border: '1px solid #cbd5e1',
+                                                borderRadius: '4px',
+                                                background: 'white'
+                                            }}
+                                        >
+                                            Mark as Read
+                                        </button>
+                                    </div>
+
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                     </div>
                 </aside>
 
@@ -187,10 +267,64 @@ const OwnerDashboard = () => {
                         {activeTab === 'overview' && (
                             <section>
                                 <div className="card-header">
-                                    <h3>Business Performance</h3>
+                                    <h3>Recent Daily Production</h3>
                                 </div>
-                                <p>Welcome back, Owner. The system is currently monitoring stock levels and daily entries.</p>
-                                {/* Add more overview stats or charts here */}
+                                <p style={{ marginBottom: '1.5rem', color: '#64748b' }}>Last 7 days of production entries</p>
+
+                                {dailyProductions.length === 0 ? (
+                                    <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No production data available</p>
+                                ) : (
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date & Time</th>
+                                                    <th>Quantity (Units)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {dailyProductions.map(prod => (
+                                                    <tr key={prod._id}>
+                                                        <td>{dayjs(prod.date).format('MMM DD, YYYY - hh:mm A')}</td>
+                                                        <td style={{ fontWeight: '700', color: '#059669' }}>{prod.quantity}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                <div style={{ marginTop: '2.5rem', paddingTop: '2rem', borderTop: '2px dashed #e2e8f0' }}>
+                                    <h4 style={{ marginBottom: '1rem', color: '#475569' }}>Generate Production Report</h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                        <div className="form-group">
+                                            <label>Start Date</label>
+                                            <input
+                                                type="date"
+                                                className="form-control"
+                                                max={yesterday}
+                                                value={productionReportRange.start}
+                                                onChange={e => setProductionReportRange({ ...productionReportRange, start: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>End Date</label>
+                                            <input
+                                                type="date"
+                                                className="form-control"
+                                                max={yesterday}
+                                                value={productionReportRange.end}
+                                                onChange={e => setProductionReportRange({ ...productionReportRange, end: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <Button variant="primary" onClick={generateProductionReport} style={{ width: '100%' }}>
+                                        📄 Download PDF Report
+                                    </Button>
+                                </div>
+
+
+
                             </section>
                         )}
 
@@ -201,15 +335,19 @@ const OwnerDashboard = () => {
                                 </div>
                                 <form onSubmit={handleUpdateSettings}>
                                     <div className="form-group">
-                                        <label>New Secret Owner Password</label>
+                                        <label>New Secret Owner Password (Supervisor Authorization)</label>
                                         <input
                                             type="password"
                                             className="form-control"
-                                            placeholder="Enter new secret password"
+                                            placeholder="Leave empty to keep current"
                                             value={settings.ownerSecretPassword === '••••••••' ? '' : settings.ownerSecretPassword}
                                             onChange={e => setSettings({ ...settings, ownerSecretPassword: e.target.value })}
                                         />
-                                        <small style={{ color: '#64748b' }}>Used by Supervisor for missing data entry authorization.</small>
+                                        <small style={{ color: '#64748b' }}>
+                                            {settings.ownerSecretPassword === '••••••••'
+                                                ? 'Current password is masked. Type here to change it.'
+                                                : 'You are changing the secret password.'}
+                                        </small>
                                     </div>
                                     <div className="form-group">
                                         <label>Low Stock Threshold</label>

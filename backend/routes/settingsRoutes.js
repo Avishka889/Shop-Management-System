@@ -49,17 +49,23 @@ router.put('/', protect, owner, async (req, res) => {
     const { ownerSecretPassword, lowStockThreshold } = req.body;
     try {
         let settings = await Settings.findOne();
-        if (settings) {
-            if (ownerSecretPassword) settings.ownerSecretPassword = ownerSecretPassword;
-            if (lowStockThreshold !== undefined) settings.lowStockThreshold = lowStockThreshold;
-            await settings.save();
-            res.json(settings);
-        } else {
-            res.status(404).json({ message: 'Settings not found' });
+        if (!settings) {
+            settings = new Settings({
+                ownerSecretPassword: 'admin',
+                lowStockThreshold: 100
+            });
         }
+
+        if (ownerSecretPassword) settings.ownerSecretPassword = ownerSecretPassword;
+        if (lowStockThreshold !== undefined) settings.lowStockThreshold = lowStockThreshold;
+
+        await settings.save();
+        res.json(settings);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Update settings error:', error);
+        res.status(500).json({ message: 'Server error while updating settings' });
     }
 });
+
 
 module.exports = router;

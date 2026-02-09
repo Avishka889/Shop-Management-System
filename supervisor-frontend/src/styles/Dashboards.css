@@ -1,15 +1,20 @@
 :root {
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --secondary: #64748b;
+    --primary: #6B7A8F;
+    /* Blueberry */
+    --primary-hover: #566475;
+    --secondary: #F7882F;
+    /* Apricot */
     --success: #10b981;
-    --warning: #f59e0b;
+    --warning: #F7C331;
+    /* Citrus */
     --danger: #ef4444;
-    --background: #f8fafc;
+    --background: #fbf9f6;
+    /* Light base from Apple Core */
     --surface: #ffffff;
-    --text-main: #1e293b;
+    --text-main: #334155;
     --text-muted: #64748b;
-    --border: #e2e8f0;
+    --border: #DCC7AA;
+    /* Apple Core */
 }
 
 body {
@@ -81,7 +86,7 @@ body {
 }
 
 .nav-item:hover {
-    background: #eff6ff;
+    background: #f1f5f9;
     color: var(--primary);
 }
 
@@ -122,11 +127,18 @@ body {
 }
 
 .stat-card.inventory::after {
-    background: var(--success);
+    background: var(--primary);
+    /* Blueberry */
 }
 
 .stat-card.orders::after {
-    background: var(--primary);
+    background: var(--secondary);
+    /* Apricot */
+}
+
+.stat-card:not(.inventory):not(.orders)::after {
+    background: var(--warning);
+    /* Citrus for total production */
 }
 
 .stat-card.alerts::after {
